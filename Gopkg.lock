@@ -21,6 +21,17 @@
   pruneopts = ""
   revision = "96f7a23cbfc6b07fdc47b5b51ed7ca6215dfeb0c"
   version = "v2.0.0"
+  digest = "1:517dd576766bef2c46a4d728f3a466efe7f8cc1fecca176ad3ad41f84aec59bc"
+  name = "code.cloudfoundry.org/garden"
+  packages = [
+    ".",
+    "client",
+    "client/connection",
+    "routes",
+    "transport",
+  ]
+  pruneopts = ""
+  revision = "6c6c7943f9d3509d9eb45fd9e95c70affd12f6a6"
 
 [[projects]]
   digest = "1:673cab9bb26a0011fbc34255ec4a6695ecb31cf6338860263959c415e3aa3dd1"
@@ -2190,6 +2201,9 @@
     "code.cloudfoundry.org/bbs",
     "code.cloudfoundry.org/bbs/models",
     "code.cloudfoundry.org/lager",
+    "code.cloudfoundry.org/garden",
+    "code.cloudfoundry.org/garden/client",
+    "code.cloudfoundry.org/garden/client/connection",
     "github.com/DataDog/agent-payload/gogen",
     "github.com/DataDog/agent-payload/process",
     "github.com/DataDog/datadog-go/statsd",
