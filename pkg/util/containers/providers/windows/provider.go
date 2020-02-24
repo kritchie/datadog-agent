@@ -89,8 +89,9 @@ func (mp *Provider) GetDefaultGateway() (net.IP, error) {
 	return nil, fmt.Errorf("Not implemented")
 }
 
-// DefaultHostIPs returns the IP addresses bound to the default network interface.
+// GetDefaultHostIPs returns the IP addresses bound to the default network interface.
 // The default network interface is the one connected to the network gateway.
 func (mp *Provider) GetDefaultHostIPs() ([]string, error) {
+	//FIXME: To be implemented for Windows containers
 	return nil, fmt.Errorf("Not implemented")
 }
