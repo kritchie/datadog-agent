@@ -28,7 +28,7 @@ Bug Fixes
   for new containers and the docker socket is not available from the datadog agent.
 
 - Support DNS Resolution in Network Performance Monitoring when the system-probe is not
-  running on the root network namespace.
+  running in a container on a non-host network.
 
 .. _Release Notes_7.17.0:
 
