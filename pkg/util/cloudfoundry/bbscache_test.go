@@ -3,8 +3,6 @@
 // This product includes software developed at Datadog (https://www.datadoghq.com/).
 // Copyright 2016-2020 Datadog, Inc.
 
-// +build clusterchecks
-
 package cloudfoundry
 
 import (
@@ -48,17 +46,22 @@ func TestBBSCachePolling(t *testing.T) {
 	assert.NotZero(t, c.GetPollSuccesses())
 }
 
-func TestBBSCache_GetDesiredLRPs(t *testing.T) {
-	assert.EqualValues(t, []DesiredLRP{ExpectedD1}, c.GetDesiredLRPs())
+func TestBBSCache_GetDesiredLRPFor(t *testing.T) {
+	assert.EqualValues(t, ExpectedD1, c.GetDesiredLRPFor("012345678901234567890123456789012345"))
 }
 
-func TestBBSCache_GetActualLRPs(t *testing.T) {
+func TestBBSCache_GetActualLRPFor(t *testing.T) {
+	assert.EqualValues(t, ExpectedA1, c.GetActualLRPFor("0123456789012345678"))
+	assert.EqualValues(t, ExpectedA2, c.GetActualLRPFor("0123456789012345679"))
+}
+
+func TestBBSCache_GetActualLRPsFor(t *testing.T) {
 	assert.EqualValues(t, []ActualLRP{ExpectedA1, ExpectedA2}, c.GetActualLRPsFor("012345678901234567890123456789012345"))
 }
 
 func TestBBSCache_GetAllLRPs(t *testing.T) {
 	a, d := c.GetAllLRPs()
-	assert.EqualValues(t, ([]DesiredLRP{ExpectedD1}), d)
+	assert.EqualValues(t, map[string]DesiredLRP{ExpectedD1.AppGUID: ExpectedD1}, d)
 	assert.EqualValues(t, map[string][]ActualLRP{"012345678901234567890123456789012345": {ExpectedA1, ExpectedA2}}, a)
 }
 

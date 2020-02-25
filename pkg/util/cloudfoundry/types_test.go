@@ -32,13 +32,14 @@ var BBSModelA1 = models.ActualLRP{
 }
 
 var ExpectedA1 = ActualLRP{
-	AppGUID:     "012345678901234567890123456789012345",
-	CellID:      "cell123",
-	ContainerIP: "1.2.3.4",
-	Index:       4,
-	Ports:       []uint32{1234, 5678},
-	ProcessGUID: "0123456789012345678901234567890123456789",
-	State:       "STATE",
+	AppGUID:      "012345678901234567890123456789012345",
+	CellID:       "cell123",
+	ContainerIP:  "1.2.3.4",
+	Index:        4,
+	Ports:        []uint32{1234, 5678},
+	ProcessGUID:  "0123456789012345678901234567890123456789",
+	InstanceGUID: "0123456789012345678",
+	State:        "STATE",
 }
 
 var BBSModelA2 = models.ActualLRP{
@@ -60,13 +61,14 @@ var BBSModelA2 = models.ActualLRP{
 }
 
 var ExpectedA2 = ActualLRP{
-	AppGUID:     "012345678901234567890123456789012345",
-	CellID:      "cell123",
-	ContainerIP: "1.2.3.5",
-	Index:       3,
-	Ports:       []uint32{1234, 5678},
-	ProcessGUID: "0123456789012345678901234567890123456789",
-	State:       "RUNNING",
+	AppGUID:      "012345678901234567890123456789012345",
+	CellID:       "cell123",
+	ContainerIP:  "1.2.3.5",
+	Index:        3,
+	Ports:        []uint32{1234, 5678},
+	ProcessGUID:  "0123456789012345678901234567890123456789",
+	InstanceGUID: "0123456789012345679",
+	State:        "RUNNING",
 }
 
 var BBSModelD1 = models.DesiredLRP{

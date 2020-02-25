@@ -23,9 +23,11 @@ type BBSCacheI interface {
 	LastUpdated() time.Time
 	GetPollAttempts() int
 	GetPollSuccesses() int
+	GetActualLRPFor(instanceGUID string) ActualLRP
 	GetActualLRPsFor(appGUID string) []ActualLRP
-	GetDesiredLRPs() []DesiredLRP
-	GetAllLRPs() (map[string][]ActualLRP, []DesiredLRP)
+	GetDesiredLRPs() map[string]DesiredLRP
+	GetAllLRPs() (map[string][]ActualLRP, map[string]DesiredLRP)
+	ExtractTags() map[string][]string
 }
 
 // BBSCache is a simple structure that caches and automatically refreshes data from Cloud Foundry BBS API
@@ -137,7 +139,7 @@ func (bc *BBSCache) GetActualLRPsFor(appGUID string) []ActualLRP {
 	return []ActualLRP{}
 }
 
-// GetDesiredLRPs returns slice of all DesiredLRP objects
+// GetDesiredLRPFor returns DesiredLRP for a specific app GUID
 func (bc *BBSCache) GetDesiredLRPFor(appGUID string) DesiredLRP {
 	bc.RLock()
 	defer bc.RUnlock()
