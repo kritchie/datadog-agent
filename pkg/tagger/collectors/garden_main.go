@@ -18,37 +18,33 @@ import (
 )
 
 const (
-	gardenCollectorName = "cloudfoundry"
+	cfCollectorName = "cloudfoundry"
 )
 
 // GardenCollector listen to the ECS agent to get ECS metadata.
 // Relies on the DockerCollector to trigger deletions, it's not intended to run standalone
 type GardenCollector struct {
 	infoOut             chan<- []*TagInfo
-	gardenUtil          *cloudfoundry.GardenUtil
 	dcaClient           clusteragent.DCAClientInterface
 	bbsCache            *cloudfoundry.BBSCache
 	clusterAgentEnabled bool
 }
 
-// Detect tries to connect to the Garden API
+// Detect tries to connect to the Garden API and the cluster agent, or fallback to diego BBS API
 func (c *GardenCollector) Detect(out chan<- []*TagInfo) (CollectionMode, error) {
-	var err error
-	c.gardenUtil, err = cloudfoundry.GetGardenUtil()
+
+	// Detect if we're on a compute VM by trying to connect to the local garden API
+	_, err := cloudfoundry.GetGardenUtil()
 	if err != nil {
 		if retry.IsErrWillRetry(err) {
-			log.Errorf("Could not connect to the local garden server: %v", err)
 			return NoCollection, err
 		}
-		log.Errorf("Permanent failure trying to connect with the local garden server")
 		return NoCollection, err
 	}
 
 	// if DCA is enabled and can't communicate with the DCA, let the tagger retry.
 	var errDCA error
-	log.Errorf("cluster agent detect", config.Datadog.Get("tags"))
 	if config.Datadog.GetBool("cluster_agent.enabled") {
-		log.Errorf("Cluster agent enabled")
 		c.clusterAgentEnabled = false
 		c.dcaClient, errDCA = clusteragent.GetClusterAgentClient()
 		if errDCA != nil {
@@ -63,14 +59,12 @@ func (c *GardenCollector) Detect(out chan<- []*TagInfo) (CollectionMode, error) 
 			}
 			log.Errorf("Permanent failure in communication with the cluster agent, will fallback to Diego BBS API")
 		} else {
-			log.Errorf("Cluster agent ok")
 			c.clusterAgentEnabled = true
 		}
 	}
 
 	if !config.Datadog.GetBool("cluster_agent.enabled") || errDCA != nil {
 		pollInterval := time.Second * time.Duration(config.Datadog.GetInt("cloud_foundry_bbs.poll_interval"))
-		// NOTE: we can't use GetPollInterval in ConfigureGlobalBBSCache, as that causes import cycle
 		bc, err := cloudfoundry.ConfigureGlobalBBSCache(
 			config.Datadog.GetString("cloud_foundry_bbs.url"),
 			config.Datadog.GetString("cloud_foundry_bbs.ca_file"),
@@ -91,15 +85,21 @@ func (c *GardenCollector) Detect(out chan<- []*TagInfo) (CollectionMode, error) 
 
 // Pull gets the list of containers
 func (c *GardenCollector) Pull() error {
+	var tagsByInstanceGUID map[string][]string
 	tagInfo := []*TagInfo{}
-	tagsByInstanceGUID, err := c.dcaClient.GetAllCFAppsMetadata()
-	if err != nil {
-		return err
+	if c.clusterAgentEnabled {
+		var err error
+		tagsByInstanceGUID, err = c.dcaClient.GetAllCFAppsMetadata()
+		if err != nil {
+			return err
+		}
+	} else {
+		tagsByInstanceGUID = c.bbsCache.ExtractTags()
 	}
 	for handle, tags := range tagsByInstanceGUID {
 		entity := containers.BuildTaggerEntityName(handle)
 		tagInfo = append(tagInfo, &TagInfo{
-			Source:       gardenCollectorName,
+			Source:       cfCollectorName,
 			Entity:       entity,
 			HighCardTags: tags,
 		})
@@ -110,12 +110,22 @@ func (c *GardenCollector) Pull() error {
 
 // Fetch gets the tags for a specific entity
 func (c *GardenCollector) Fetch(entity string) ([]string, []string, []string, error) {
-	tagsByInstanceGUID, err := c.dcaClient.GetAllCFAppsMetadata()
-	if err != nil {
-		return []string{}, []string{}, []string{}, err
+	var tagsByInstanceGUID map[string][]string
+	if c.clusterAgentEnabled {
+		var err error
+		tagsByInstanceGUID, err = c.dcaClient.GetAllCFAppsMetadata()
+		if err != nil {
+			return []string{}, []string{}, []string{}, err
+		}
+	} else {
+		tagsByInstanceGUID = c.bbsCache.ExtractTags()
 	}
 	_, cid := containers.SplitEntityName(entity)
-	return []string{}, []string{}, tagsByInstanceGUID[cid], nil
+	tags, ok := tagsByInstanceGUID[cid]
+	if !ok {
+		return []string{}, []string{}, []string{}, fmt.Errorf("could not find tags for app %s", cid)
+	}
+	return []string{}, []string{}, tags, nil
 }
 
 func gardenFactory() Collector {
@@ -123,5 +133,5 @@ func gardenFactory() Collector {
 }
 
 func init() {
-	registerCollector(gardenCollectorName, gardenFactory, NodeRuntime)
+	registerCollector(cfCollectorName, gardenFactory, NodeRuntime)
 }

@@ -52,30 +52,7 @@ func getAllCFAppsMetadata(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	tags := map[string][]string{}
-	alrps, dlrps := bbsCache.GetAllLRPs()
-	for appGUID, dlrp := range dlrps {
-		alrpsForApp, ok := alrps[appGUID]
-		if !ok {
-			log.Debugf("Could not find actual LRPs for app GUID %s", appGUID)
-			continue
-		}
-		vcApp := dlrp.EnvVcapApplication
-		appName, ok := vcApp["application_name"]
-		if !ok {
-			log.Debugf("Could not find application_name of app %s", appGUID)
-			continue
-		}
-		for _, alrp := range alrpsForApp {
-			tags[alrp.InstanceGUID] = []string{
-				fmt.Sprintf("container_name:%s_%d", appName, alrp.Index),
-				fmt.Sprintf("app_name:%s", appName),
-				fmt.Sprintf("app_guid:%s", appGUID),
-				fmt.Sprintf("app_instance_index:%d", alrp.Index),
-				fmt.Sprintf("app_instance_guid:%s", alrp.InstanceGUID),
-			}
-		}
-	}
+	tags := bbsCache.ExtractTags()
 
 	tagsBytes, err := json.Marshal(tags)
 	if err != nil {

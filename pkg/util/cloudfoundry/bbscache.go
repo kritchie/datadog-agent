@@ -3,8 +3,6 @@
 // This product includes software developed at Datadog (https://www.datadoghq.com/).
 // Copyright 2016-2020 Datadog, Inc.
 
-// +build clusterchecks
-
 package cloudfoundry
 
 import (
@@ -235,4 +233,33 @@ func (bc *BBSCache) readDesiredLRPs() (map[string]DesiredLRP, error) {
 		desiredLRPs[desiredLRP.AppGUID] = desiredLRP
 	}
 	return desiredLRPs, nil
+}
+
+// Extract tags extract all the container tags for each app in the cache an returns a mapping of tags by instance GUID
+func (bc *BBSCache) ExtractTags() map[string][]string {
+	tags := map[string][]string{}
+	alrps, dlrps := bc.GetAllLRPs()
+	for appGUID, dlrp := range dlrps {
+		alrpsForApp, ok := alrps[appGUID]
+		if !ok {
+			log.Debugf("Could not find actual LRPs for app GUID %s", appGUID)
+			continue
+		}
+		vcApp := dlrp.EnvVcapApplication
+		appName, ok := vcApp["application_name"]
+		if !ok {
+			log.Debugf("Could not find application_name of app %s", appGUID)
+			continue
+		}
+		for _, alrp := range alrpsForApp {
+			tags[alrp.InstanceGUID] = []string{
+				fmt.Sprintf("container_name:%s_%d", appName, alrp.Index),
+				fmt.Sprintf("app_name:%s", appName),
+				fmt.Sprintf("app_guid:%s", appGUID),
+				fmt.Sprintf("app_instance_index:%d", alrp.Index),
+				fmt.Sprintf("app_instance_guid:%s", alrp.InstanceGUID),
+			}
+		}
+	}
+	return tags
 }
