@@ -8,11 +8,12 @@ package app
 import (
 	"context"
 	"fmt"
-	"github.com/DataDog/datadog-agent/pkg/util/cloudfoundry"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
+
+	"github.com/DataDog/datadog-agent/pkg/util/cloudfoundry"
 
 	"github.com/fatih/color"
 	"github.com/spf13/cobra"
@@ -234,7 +235,7 @@ func initializeBBSCache() error {
 		config.Datadog.GetString("cloud_foundry_bbs.cert_file"),
 		config.Datadog.GetString("cloud_foundry_bbs.key_file"),
 		pollInterval,
-		true,
+		false,
 	)
 	if err != nil {
 		return fmt.Errorf("Failed to initialize BBS Cache: %s", err.Error())

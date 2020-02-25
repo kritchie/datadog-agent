@@ -10,6 +10,7 @@ package cloudfoundry
 import (
 	"encoding/json"
 	"fmt"
+
 	"github.com/DataDog/datadog-agent/pkg/util/log"
 
 	"code.cloudfoundry.org/bbs/models"
@@ -18,6 +19,7 @@ import (
 const (
 	EnvAdVariableName           = "AD_DATADOGHQ_COM"
 	EnvVcapServicesVariableName = "VCAP_SERVICES"
+	EnvVcapApplicationName      = "VCAP_APPLICATION"
 	ActualLrpStateRunning       = "RUNNING"
 )
 
@@ -66,21 +68,23 @@ func (id ADIdentifier) String() string {
 
 // ActualLRP carries the necessary data about an Actual LRP obtained through BBS API
 type ActualLRP struct {
-	AppGUID     string
-	CellID      string
-	ContainerIP string
-	Index       int32
-	Ports       []uint32
-	ProcessGUID string
-	State       string
+	AppGUID      string
+	CellID       string
+	ContainerIP  string
+	Index        int32
+	Ports        []uint32
+	ProcessGUID  string
+	InstanceGUID string
+	State        string
 }
 
 // DesiredLRP carries the necessary data about a Desired LRP obtained through BBS API
 type DesiredLRP struct {
-	AppGUID         string
-	EnvAD           ADConfig
-	EnvVcapServices map[string][]byte
-	ProcessGUID     string
+	AppGUID            string
+	EnvAD              ADConfig
+	EnvVcapServices    map[string][]byte
+	EnvVcapApplication map[string]interface{}
+	ProcessGUID        string
 }
 
 // ActualLRPFromBBSModel creates a new ActualLRP from BBS's ActualLRP model
@@ -90,13 +94,14 @@ func ActualLRPFromBBSModel(bbsLRP *models.ActualLRP) ActualLRP {
 		ports = append(ports, pm.ContainerPort)
 	}
 	a := ActualLRP{
-		AppGUID:     appGUIDFromProcessGUID(bbsLRP.ProcessGuid),
-		CellID:      bbsLRP.CellId,
-		ContainerIP: bbsLRP.InstanceAddress,
-		Index:       bbsLRP.Index,
-		Ports:       ports,
-		ProcessGUID: bbsLRP.ProcessGuid,
-		State:       bbsLRP.State,
+		AppGUID:      appGUIDFromProcessGUID(bbsLRP.ProcessGuid),
+		CellID:       bbsLRP.CellId,
+		ContainerIP:  bbsLRP.InstanceAddress,
+		Index:        bbsLRP.Index,
+		Ports:        ports,
+		ProcessGUID:  bbsLRP.ProcessGuid,
+		State:        bbsLRP.State,
+		InstanceGUID: bbsLRP.InstanceGuid,
 	}
 	return a
 }
@@ -105,6 +110,7 @@ func ActualLRPFromBBSModel(bbsLRP *models.ActualLRP) ActualLRP {
 func DesiredLRPFromBBSModel(bbsLRP *models.DesiredLRP) DesiredLRP {
 	envAD := ADConfig{}
 	envVS := map[string][]byte{}
+	envVA := map[string]interface{}{}
 	actionEnvs := [][]*models.EnvironmentVariable{}
 	appGUID := appGUIDFromProcessGUID(bbsLRP.ProcessGuid)
 	// Actions are a nested structure, e.g parallel action might contain two serial actions etc
@@ -147,6 +153,12 @@ func DesiredLRPFromBBSModel(bbsLRP *models.DesiredLRP) DesiredLRP {
 					log.Errorf("Failed unmarshalling %s env variable for app %s: %s",
 						EnvVcapServicesVariableName, appGUID, err.Error())
 				}
+			} else if ev.Name == EnvVcapApplicationName {
+				envVA, err = getVcapApplicationMap(ev.Value)
+				if err != nil {
+					log.Errorf("Failed unmarshalling %s env variable for app %s: %s",
+						EnvVcapApplicationName, appGUID, err.Error())
+				}
 			}
 		}
 		if len(envAD) > 0 {
@@ -155,10 +167,11 @@ func DesiredLRPFromBBSModel(bbsLRP *models.DesiredLRP) DesiredLRP {
 		}
 	}
 	d := DesiredLRP{
-		AppGUID:         appGUID,
-		EnvAD:           envAD,
-		EnvVcapServices: envVS,
-		ProcessGUID:     bbsLRP.ProcessGuid,
+		AppGUID:            appGUID,
+		EnvAD:              envAD,
+		EnvVcapServices:    envVS,
+		EnvVcapApplication: envVA,
+		ProcessGUID:        bbsLRP.ProcessGuid,
 	}
 	return d
 }
@@ -201,4 +214,20 @@ func getVcapServicesMap(vcap, appGUID string) (map[string][]byte, error) {
 	}
 
 	return ret, nil
+}
+
+func getVcapApplicationMap(vcap string) (map[string]interface{}, error) {
+	// VCAP_APPLICATION describes the application
+	// e.g. {"application_id": "...", "application_name": "...", ...
+	var vcMap map[string]interface{}
+	if vcap == "" {
+		return vcMap, nil
+	}
+
+	err := json.Unmarshal([]byte(vcap), &vcMap)
+	if err != nil {
+		return vcMap, err
+	}
+
+	return vcMap, nil
 }

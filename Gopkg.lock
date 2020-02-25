@@ -21,6 +21,8 @@
   pruneopts = ""
   revision = "96f7a23cbfc6b07fdc47b5b51ed7ca6215dfeb0c"
   version = "v2.0.0"
+
+[[projects]]
   digest = "1:517dd576766bef2c46a4d728f3a466efe7f8cc1fecca176ad3ad41f84aec59bc"
   name = "code.cloudfoundry.org/garden"
   packages = [
@@ -2122,7 +2124,7 @@
   revision = "b3a7cee44a305be0a69e1b9ac03018307287e1b0"
 
 [[projects]]
-  digest = "0:"
+  digest = "1:f27698f7ae7864893ebcfb843e44d821263ac1dcf0ba1d5c2353f9d319a2f28d"
   name = "k8s.io/kubernetes"
   packages = [
     "pkg/kubelet/remote/fake",
@@ -2200,10 +2202,10 @@
   input-imports = [
     "code.cloudfoundry.org/bbs",
     "code.cloudfoundry.org/bbs/models",
-    "code.cloudfoundry.org/lager",
     "code.cloudfoundry.org/garden",
     "code.cloudfoundry.org/garden/client",
     "code.cloudfoundry.org/garden/client/connection",
+    "code.cloudfoundry.org/lager",
     "github.com/DataDog/agent-payload/gogen",
     "github.com/DataDog/agent-payload/process",
     "github.com/DataDog/datadog-go/statsd",

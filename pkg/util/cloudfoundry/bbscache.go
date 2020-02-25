@@ -9,9 +9,10 @@ package cloudfoundry
 
 import (
 	"fmt"
-	"github.com/DataDog/datadog-agent/pkg/util/log"
 	"sync"
 	"time"
+
+	"github.com/DataDog/datadog-agent/pkg/util/log"
 
 	"code.cloudfoundry.org/bbs"
 	"code.cloudfoundry.org/bbs/models"
@@ -39,9 +40,10 @@ type BBSCache struct {
 	pollAttempts       int
 	pollSuccesses      int
 	// maps Desired LRPs' AppGUID to list of ActualLRPs (IOW this is list of running containers per app)
-	actualLRPs  map[string][]ActualLRP
-	desiredLRPs []DesiredLRP
-	lastUpdated time.Time
+	actualLRPs              map[string][]ActualLRP
+	actualLRPByInstanceGUID map[string]*ActualLRP
+	desiredLRPs             map[string]DesiredLRP
+	lastUpdated             time.Time
 }
 
 var (
@@ -117,6 +119,16 @@ func (bc *BBSCache) GetPollSuccesses() int {
 	return bc.pollSuccesses
 }
 
+// GetActualLRPFor returns the App GUID associated to an instance GUID
+func (bc *BBSCache) GetActualLRPFor(instanceGUID string) ActualLRP {
+	bc.RLock()
+	defer bc.RUnlock()
+	if val, ok := bc.actualLRPByInstanceGUID[instanceGUID]; ok {
+		return *val
+	}
+	return ActualLRP{}
+}
+
 // GetActualLRPsFor returns slice of ActualLRP objects for given App GUID
 func (bc *BBSCache) GetActualLRPsFor(appGUID string) []ActualLRP {
 	bc.RLock()
@@ -128,14 +140,14 @@ func (bc *BBSCache) GetActualLRPsFor(appGUID string) []ActualLRP {
 }
 
 // GetDesiredLRPs returns slice of all DesiredLRP objects
-func (bc *BBSCache) GetDesiredLRPs() []DesiredLRP {
+func (bc *BBSCache) GetDesiredLRPFor(appGUID string) DesiredLRP {
 	bc.RLock()
 	defer bc.RUnlock()
-	return bc.desiredLRPs
+	return bc.desiredLRPs[appGUID]
 }
 
 // GetAllLRPs returns all Actual LRPs (in mapping {appGuid: []ActualLRP}) and all Desired LRPs
-func (bc *BBSCache) GetAllLRPs() (map[string][]ActualLRP, []DesiredLRP) {
+func (bc *BBSCache) GetAllLRPs() (map[string][]ActualLRP, map[string]DesiredLRP) {
 	bc.RLock()
 	defer bc.RUnlock()
 	return bc.actualLRPs, bc.desiredLRPs
@@ -159,7 +171,7 @@ func (bc *BBSCache) readData() {
 	bc.Unlock()
 	var wg sync.WaitGroup
 	var actualLRPs map[string][]ActualLRP
-	var desiredLRPs []DesiredLRP
+	var desiredLRPs map[string]DesiredLRP
 	var errActual, errDesired error
 
 	wg.Add(2)
@@ -194,6 +206,7 @@ func (bc *BBSCache) readData() {
 
 func (bc *BBSCache) readActualLRPs() (map[string][]ActualLRP, error) {
 	actualLRPs := map[string][]ActualLRP{}
+	bc.actualLRPByInstanceGUID = map[string]*ActualLRP{}
 	actualLRPsBBS, err := bc.bbsAPIClient.ActualLRPs(bc.bbsAPIClientLogger, models.ActualLRPFilter{})
 	if err != nil {
 		return actualLRPs, err
@@ -202,21 +215,24 @@ func (bc *BBSCache) readActualLRPs() (map[string][]ActualLRP, error) {
 		alrp := ActualLRPFromBBSModel(lrp)
 		if lrpList, ok := actualLRPs[alrp.AppGUID]; ok {
 			actualLRPs[alrp.AppGUID] = append(lrpList, alrp)
+			bc.actualLRPByInstanceGUID[alrp.InstanceGUID] = &actualLRPs[alrp.AppGUID][len(lrpList)]
 		} else {
 			actualLRPs[alrp.AppGUID] = []ActualLRP{alrp}
+			bc.actualLRPByInstanceGUID[alrp.InstanceGUID] = &actualLRPs[alrp.AppGUID][0]
 		}
 	}
 	return actualLRPs, nil
 }
 
-func (bc *BBSCache) readDesiredLRPs() ([]DesiredLRP, error) {
+func (bc *BBSCache) readDesiredLRPs() (map[string]DesiredLRP, error) {
 	desiredLRPsBBS, err := bc.bbsAPIClient.DesiredLRPs(bc.bbsAPIClientLogger, models.DesiredLRPFilter{})
 	if err != nil {
-		return []DesiredLRP{}, err
+		return map[string]DesiredLRP{}, err
 	}
-	desiredLRPs := make([]DesiredLRP, len(desiredLRPsBBS))
-	for i, lrp := range desiredLRPsBBS {
-		desiredLRPs[i] = DesiredLRPFromBBSModel(lrp)
+	desiredLRPs := make(map[string]DesiredLRP, len(desiredLRPsBBS))
+	for _, lrp := range desiredLRPsBBS {
+		desiredLRP := DesiredLRPFromBBSModel(lrp)
+		desiredLRPs[desiredLRP.AppGUID] = desiredLRP
 	}
 	return desiredLRPs, nil
 }

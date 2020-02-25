@@ -3,10 +3,11 @@
 package ebpf
 
 import (
-	bpflib "github.com/iovisor/gobpf/elf"
 	"net"
 	"testing"
 	"time"
+
+	bpflib "github.com/iovisor/gobpf/elf"
 
 	"github.com/DataDog/datadog-agent/pkg/process/util"
 	mdns "github.com/miekg/dns"
